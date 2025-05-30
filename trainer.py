@@ -1,19 +1,19 @@
-from typing import List
-from pokemon import Pokemon
-
 class Trainer:
-    def __init__(self, name: str, pokemon_team: List[Pokemon], is_ai: bool = False):
+    def __init__(self, name, pokemons):
         self.name = name
-        self.pokemon_team = pokemon_team
-        self.active_pokemon = pokemon_team[0] if pokemon_team else None
-        self.is_ai = is_ai
-    
-    def has_available_pokemon(self) -> bool:
-        return any(not pokemon.is_fainted() for pokemon in self.pokemon_team)
-    
-    def switch_pokemon(self, index: int) -> bool:
-        """Cambia al Pokémon activo. Devuelve True si fue exitoso."""
-        if 0 <= index < len(self.pokemon_team) and not self.pokemon_team[index].is_fainted():
-            self.active_pokemon = self.pokemon_team[index]
-            return True
+        self.pokemons = pokemons
+        self.active_index = 0
+
+    @property
+    def active_pokemon(self):
+        return self.pokemons[self.active_index]
+
+    def has_available_pokemon(self):
+        return any(not p.is_fainted() for p in self.pokemons)
+
+    def switch_to_next_available(self):
+        for i, p in enumerate(self.pokemons):
+            if not p.is_fainted():
+                self.active_index = i
+                return True
         return False
