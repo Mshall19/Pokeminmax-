@@ -1,8 +1,12 @@
 class Trainer:
-    def __init__(self, name, pokemons):
+    def __init__(self, name, pokemons, is_ai=False):
         self.name = name
         self.pokemons = pokemons
+        self.is_ai = is_ai
         self.active_index = 0
+
+    def current_pokemon(self):
+        return self.pokemons[self.active_index]
 
     @property
     def active_pokemon(self):

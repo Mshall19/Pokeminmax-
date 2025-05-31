@@ -1,13 +1,21 @@
 class Pokemon:
-    def __init__(self, name, types, hp, moves):
+    def __init__(self, name, hp, types, moves, sprite_url):
         self.name = name
-        self.types = types
         self.max_hp = hp
-        self.hp = hp
+        self.current_hp = hp
+        self.types = types
         self.moves = moves
-
-    def is_fainted(self):
-        return self.hp <= 0
+        self.sprite_url = sprite_url
 
     def receive_damage(self, damage):
-        self.hp = max(self.hp - damage, 0)
+        self.current_hp = max(0, self.current_hp - damage)
+
+    @staticmethod
+    def from_api_data(data):
+        return Pokemon(
+            name=data["name"],
+            hp=data["hp"],
+            types=data["types"],
+            moves=data["moves"],
+            sprite_url=data["sprite"]
+        )

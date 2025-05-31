@@ -30,3 +30,38 @@ def calculate_damage(attacker, defender, move):
 def apply_move(attacker, defender, move):
     damage = calculate_damage(attacker, defender, move)
     defender.receive_damage(damage)
+
+class Battle:
+    def __init__(self, player_trainer, enemy_trainer):
+        self.player = player_trainer
+        self.enemy = enemy_trainer
+        self.turn = 0  # 0: jugador, 1: IA
+
+    def play_turn(self):
+        # Simulación de turno
+        if self.turn == 0:
+            result = self.player_attack()
+        else:
+            result = self.enemy_attack()
+        self.turn = 1 - self.turn
+        return result
+
+    def player_attack(self):
+        enemy = self.enemy.current_pokemon()
+        player = self.player.current_pokemon()
+        damage = 10  # Simplificado
+        enemy.current_hp -= damage
+        return f"{player.name} atacó a {enemy.name} causando {damage} daño."
+
+    def enemy_attack(self):
+        enemy = self.enemy.current_pokemon()
+        player = self.player.current_pokemon()
+        damage = 10
+        player.current_hp -= damage
+        return f"{enemy.name} atacó a {player.name} causando {damage} daño."
+
+    def is_over(self):
+        return self.player.has_lost() or self.enemy.has_lost()
+
+    def get_winner(self):
+        return self.enemy if self.player.has_lost() else self.player
