@@ -3,8 +3,8 @@ from tkinter import messagebox
 import requests
 from PIL import Image, ImageTk
 from io import BytesIO
-from .battle_screen import BattleScreen
-
+from datos.cargar_desde_excel import cargar_pokemones_desde_excel
+from GUI.battle_screen import BattleScreen
 
 TYPE_EMOJIS = {
     "grass": "🌿", "fire": "🔥", "water": "💧", "electric": "⚡",
@@ -13,114 +13,138 @@ TYPE_EMOJIS = {
     "ice": "❄️", "dragon": "🐉", "fairy": "🧚", "flying": "🕊️"
 }
 
+MAX_SELECCIONADOS = 3
+TOTAL_POKEMONS = 50 # Desde ID 1 hasta 9
+
+
 class PokeMinMaxGUI:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Pokeminmax")
-        self.root.geometry("800x600")
+        self.root.geometry("850x700")
         self.root.resizable(False, False)
 
-        self.pokemon_thumbnails = []
-        self.selected_pokemon_ids = []
-        self.pokemon_cards = {}
+        self.pokemon_photos = {}     # id -> PhotoImage
+        self.checkbox_vars = {}      # id -> tk.IntVar()
+        self.selected_pokemon_ids = set()
+        self.pokemon_cards = {}      # id -> Frame (para cambiar estilo)
+        self.pokemon_data = {}       # id -> datos para filtro
 
         self.setup_interface()
+        self.cargar_todos_pokemones()
+
         self.root.mainloop()
 
     def setup_interface(self):
+        # Nombre jugador
         name_frame = tk.Frame(self.root)
         name_frame.pack(pady=10)
-
         tk.Label(name_frame, text="Nombre del jugador:", font=("Arial", 14)).pack(side="left", padx=5)
         self.player_name_entry = tk.Entry(name_frame, font=("Arial", 14), width=30)
         self.player_name_entry.pack(side="left")
 
-        self.gallery_container = tk.Frame(self.root)
-        self.gallery_container.pack(pady=10, fill="both", expand=True)
+        # Buscador de Pokémon
+        search_frame = tk.Frame(self.root)
+        search_frame.pack(pady=10)
+        tk.Label(search_frame, text="Buscar Pokémon:", font=("Arial", 12)).pack(side="left", padx=5)
+        self.search_var = tk.StringVar()
+        self.search_var.trace_add("write", self.filtrar_pokemones)
+        self.search_entry = tk.Entry(search_frame, textvariable=self.search_var, font=("Arial", 12), width=30)
+        self.search_entry.pack(side="left")
 
-        self.canvas = tk.Canvas(self.gallery_container, height=400)
-        scrollbar = tk.Scrollbar(self.gallery_container, orient="vertical", command=self.canvas.yview)
-        self.scrollable_frame = tk.Frame(self.canvas)
+        # Contenedor galería con scroll vertical
+        self.gallery_canvas = tk.Canvas(self.root, height=450)
+        self.gallery_canvas.pack(side="left", fill="both", expand=True, padx=(10,0), pady=10)
 
-        self.scrollable_frame.bind(
-            "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        )
+        self.scrollbar = tk.Scrollbar(self.root, orient="vertical", command=self.gallery_canvas.yview)
+        self.scrollbar.pack(side="left", fill="y", pady=10)
 
-        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        self.canvas.configure(yscrollcommand=scrollbar.set)
+        self.gallery_canvas.configure(yscrollcommand=self.scrollbar.set)
 
-        self.canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        self.gallery_frame = tk.Frame(self.gallery_canvas)
+        self.gallery_canvas.create_window((0, 0), window=self.gallery_frame, anchor="nw")
 
-        self.load_pokemon_gallery()
+        self.gallery_frame.bind("<Configure>", lambda e: self.gallery_canvas.configure(scrollregion=self.gallery_canvas.bbox("all")))
 
-        control_frame = tk.Frame(self.root)
-        control_frame.pack(pady=10)
+        # Botón limpiar selección
+        btn_frame = tk.Frame(self.root)
+        btn_frame.pack(pady=10, fill="x")
+        tk.Button(btn_frame, text="Borrar selección", font=("Arial", 12), command=self.clear_selection).pack()
 
-        tk.Label(control_frame, text="Añadir Pokémon:", font=("Arial", 14)).pack(side="left", padx=5)
-        self.add_entry = tk.Entry(control_frame, font=("Arial", 14), width=20)
-        self.add_entry.pack(side="left", padx=5)
-
-        tk.Button(control_frame, text="Borrar selección", font=("Arial", 12), command=self.clear_selection).pack(side="left", padx=5)
-
+        # Botón iniciar batalla
         self.battle_button = tk.Button(self.root, text="¡Iniciar batalla!", font=("Arial", 16), command=self.launch_battle, state="disabled")
         self.battle_button.pack(pady=10)
 
-    def load_pokemon_gallery(self):
-        columns = 2
-        for index, pokemon_id in enumerate(range(1, 10)):  # ID 1 a 9
-            try:
-                url = f"https://pokeapi.co/api/v2/pokemon/{pokemon_id}"
-                response = requests.get(url)
-                data = response.json()
+    def cargar_todos_pokemones(self):
+        self.todos_los_pokemones = cargar_pokemones_desde_excel()
 
-                name = data["name"].capitalize()
-                sprite_url = data["sprites"]["front_default"]
-                types = [TYPE_EMOJIS.get(t["type"]["name"], "") for t in data["types"]]
-                type_display = " ".join(types)
+        for p in self.todos_los_pokemones[:TOTAL_POKEMONS]:  # Limita a los primeros 50 si quieres
+            sprite_response = requests.get(p.sprite_url)
+            image = Image.open(BytesIO(sprite_response.content)).resize((96, 96), Image.Resampling.LANCZOS)
+            photo = ImageTk.PhotoImage(image)
+            self.pokemon_photos[p.id] = photo
 
-                sprite_response = requests.get(sprite_url)
-                image = Image.open(BytesIO(sprite_response.content)).resize((96, 96), Image.Resampling.LANCZOS)
+            self.pokemon_data[p.id] = {
+                "name": p.name,
+                "type_display": " ".join(TYPE_EMOJIS.get(t, "") for t in p.types),
+                "photo": photo
+            }
 
-                photo = ImageTk.PhotoImage(image)
-                self.pokemon_thumbnails.append(photo)
+        self.mostrar_pokemones_filtrados()
+    def mostrar_pokemones_filtrados(self):
+        # Limpia la galería
+        for widget in self.gallery_frame.winfo_children():
+            widget.destroy()
+        self.checkbox_vars.clear()
+        self.pokemon_cards.clear()
 
-                card = tk.Frame(self.scrollable_frame, relief="ridge", borderwidth=2, padx=5, pady=5)
+        filtro = self.search_var.get().strip().lower()
 
-                tk.Label(card, image=photo).pack(side="left", padx=10)
-                tk.Label(card, text=f"{name} {type_display}", font=("Arial", 16)).pack(side="left")
+        # Muestra todos los pokémon cuyo nombre contenga el filtro
+        for pid, pdata in self.pokemon_data.items():
+            if filtro in pdata["name"].lower():
+                card = tk.Frame(self.gallery_frame, relief="ridge", borderwidth=2, padx=5, pady=5)
+                card.pack(padx=10, pady=5, fill="x")
 
-                row = index // columns
-                col = index % columns
-                card.grid(row=row, column=col, padx=10, pady=10, sticky="nw")
+                tk.Label(card, image=pdata["photo"]).pack(side="left", padx=50)
+                tk.Label(card, text=f"{pdata['name']} {pdata['type_display']}", font=("Arial", 16)).pack(side="left", padx=10)
 
-                def toggle_selection(pokemon_id=pokemon_id):
-                    if pokemon_id in self.selected_pokemon_ids:
-                        self.selected_pokemon_ids.remove(pokemon_id)
-                        self.pokemon_cards[pokemon_id].config(bg="SystemButtonFace")
-                    elif len(self.selected_pokemon_ids) < 3:
-                        self.selected_pokemon_ids.append(pokemon_id)
-                        self.pokemon_cards[pokemon_id].config(bg="lightgreen")
+                var = tk.IntVar(value=1 if pid in self.selected_pokemon_ids else 0)
+                self.checkbox_vars[pid] = var
 
-                    if len(self.selected_pokemon_ids) == 3:
-                        self.battle_button.config(state="normal")
+                def on_toggle(pid=pid, v=var):
+                    if v.get() == 1:
+                        if len(self.selected_pokemon_ids) >= MAX_SELECCIONADOS:
+                            messagebox.showwarning("Pokeminmax", f"Solo puedes seleccionar {MAX_SELECCIONADOS} Pokémon.")
+                            v.set(0)
+                            return
+                        self.selected_pokemon_ids.add(pid)
                     else:
-                        self.battle_button.config(state="disabled")
+                        if pid in self.selected_pokemon_ids:
+                            self.selected_pokemon_ids.remove(pid)
+                    self.update_battle_button()
 
-                card.bind("<Button-1>", lambda e, pid=pokemon_id: toggle_selection(pid))
-                self.pokemon_cards[pokemon_id] = card
+                cb = tk.Checkbutton(card, variable=var, command=on_toggle)
+                cb.pack(side="right", padx=10)
 
-            except Exception as e:
-                print(f"Error cargando Pokémon #{pokemon_id}: {e}")
+                self.pokemon_cards[pid] = card
+
+        self.update_battle_button()
+
+    def filtrar_pokemones(self, *args):
+        self.mostrar_pokemones_filtrados()
+
+    def update_battle_button(self):
+        if len(self.selected_pokemon_ids) == MAX_SELECCIONADOS:
+            self.battle_button.config(state="normal")
+        else:
+            self.battle_button.config(state="disabled")
 
     def clear_selection(self):
-        for pid in self.selected_pokemon_ids:
-            if pid in self.pokemon_cards:
-                self.pokemon_cards[pid].config(bg="SystemButtonFace")
         self.selected_pokemon_ids.clear()
-        self.battle_button.config(state="disabled")
-        self.add_entry.delete(0, tk.END)
+        for var in self.checkbox_vars.values():
+            var.set(0)
+        self.update_battle_button()
         messagebox.showinfo("Pokeminmax", "Selección de Pokémon borrada.")
 
     def launch_battle(self):
@@ -128,13 +152,18 @@ class PokeMinMaxGUI:
         if not player_name:
             messagebox.showwarning("Pokeminmax", "¡Debes ingresar tu nombre!")
             return
+        if len(self.selected_pokemon_ids) != MAX_SELECCIONADOS:
+            messagebox.showwarning("Pokeminmax", f"Debes seleccionar exactamente {MAX_SELECCIONADOS} Pokémon.")
+            return
 
-        BattleScreen(self.root, player_name, self.selected_pokemon_ids)
+        # Lanza la batalla
+        BattleScreen(self.root, player_name, list(self.selected_pokemon_ids))
 
-# Punto de entrada
-if __name__ == "__main__":
-    PokeMinMaxGUI()
 
-# Para integrarlo desde main.py
+
 def launch_gui():
     PokeMinMaxGUI()
+
+
+if __name__ == "__main__":
+    launch_gui()

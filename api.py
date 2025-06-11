@@ -1,5 +1,7 @@
 import requests
 
+
+
 def is_first_generation(pokemon_name_or_id):
     url = f"https://pokeapi.co/api/v2/pokemon-species/{pokemon_name_or_id}"
     response = requests.get(url)

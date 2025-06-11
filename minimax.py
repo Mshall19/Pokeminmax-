@@ -1,9 +1,10 @@
 from copy import deepcopy
 
 def evaluate(trainer_ai, trainer_player):
-    ai_score = sum(p.hp for p in trainer_ai.pokemons if not p.is_fainted())
-    player_score = sum(p.hp for p in trainer_player.pokemons if not p.is_fainted())
+    ai_score = sum(p.current_hp for p in trainer_ai.pokemons if not p.is_fainted())
+    player_score = sum(p.current_hp for p in trainer_player.pokemons if not p.is_fainted())
     return ai_score - player_score
+
 
 def minimax(ai, player, depth, alpha, beta, maximizing):
     if depth == 0 or not ai.has_available_pokemon() or not player.has_available_pokemon():
@@ -45,3 +46,9 @@ def minimax(ai, player, depth, alpha, beta, maximizing):
             if beta <= alpha:
                 break
         return min_eval, best_move
+
+
+# ✅ Esta es la función que debes agregar al final del archivo
+def obtener_mejor_ataque(trainer_ai, trainer_player):
+    _, mejor_ataque = minimax(trainer_ai, trainer_player, depth=2, alpha=float('-inf'), beta=float('inf'), maximizing=True)
+    return mejor_ataque

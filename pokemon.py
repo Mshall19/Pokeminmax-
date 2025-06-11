@@ -1,3 +1,5 @@
+from api import obtener_datos_pokemon
+
 class Pokemon:
     def __init__(self, name, hp, types, moves, sprite_url):
         self.name = name
@@ -10,6 +12,9 @@ class Pokemon:
     def receive_damage(self, damage):
         self.current_hp = max(0, self.current_hp - damage)
 
+    def is_fainted(self):
+        return self.current_hp == 0
+
     @staticmethod
     def from_api_data(data):
         return Pokemon(
@@ -19,3 +24,8 @@ class Pokemon:
             moves=data["moves"],
             sprite_url=data["sprite"]
         )
+
+# ✅ Función que usará BattleScreen
+def crear_pokemon_por_id(id_pokemon):
+    datos = obtener_datos_pokemon(id_pokemon)
+    return Pokemon.from_api_data(datos)

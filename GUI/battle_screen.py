@@ -1,65 +1,100 @@
-from tkinter import *
-from api import get_pokemon_data  # o tu función para obtener los datos de pokémon
-from pokemon import Pokemon
-from trainer import Trainer
-from battle import Battle
+import tkinter as tk
+from tkinter import messagebox
+from PIL import Image, ImageTk
+import random
+import os
+
+from minimax import obtener_mejor_ataque
+from pokemon import crear_pokemon_por_id
+from trainer import Entrenador
 
 class BattleScreen:
-    def __init__(self, root, player_name, selected_ids):
-        self.window = Toplevel(root)
-        self.window.title("¡Batalla Pokémon!")
-        self.window.geometry("800x600")
+    def __init__(self, master, nombre_jugador, ids_seleccionados):
+        self.master = tk.Toplevel(master)
+        self.master.title("¡Batalla Pokémon!")
+        self.master.geometry("1000x600")
+        self.master.resizable(False, False)
 
-        self.player_name = player_name
-        self.player_pokemon = [self.create_pokemon(pid) for pid in selected_ids]
-        self.enemy_pokemon = [self.create_pokemon(pid) for pid in self.get_enemy_ids(selected_ids)]
+        self.jugador = Entrenador(nombre_jugador, [crear_pokemon_por_id(i) for i in ids_seleccionados])
 
-        self.player = Trainer(player_name, self.player_pokemon)
-        self.enemy = Trainer("IA", self.enemy_pokemon, is_ai=True)
-        self.battle = Battle(self.player, self.enemy)
+        enemigos_ids = random.sample(range(1, 10), 3)
+        self.rival = Entrenador("IA Rival", [crear_pokemon_por_id(i) for i in enemigos_ids])
 
-        self.setup_interface()
-        self.update_display()
+        self.pokemon_jugador = self.jugador.pokemones[0]
+        self.pokemon_rival = self.rival.pokemones[0]
 
-    def create_pokemon(self, poke_id):
-        # Aquí deberías tener algo como una función que devuelva una instancia de la clase Pokémon
-        poke_data = get_pokemon_data(poke_id)
-        return Pokemon.from_api_data(poke_data)  # o lo que uses en tu proyecto
+        self.setup_ui()
+        self.actualizar_interface()
 
-    def get_enemy_ids(self, selected_ids):
-        # IDs entre 1 y 9 que no estén en los seleccionados
-        all_ids = list(range(1, 10))
-        return [pid for pid in all_ids if pid not in selected_ids][:3]
+    def setup_ui(self):
+        self.frame = tk.Frame(self.master)
+        self.frame.pack(pady=20)
 
-    def setup_interface(self):
-        self.info_label = Label(self.window, font=("Arial", 16))
-        self.info_label.pack(pady=20)
+        # Sprites
+        self.img_jugador_label = tk.Label(self.frame)
+        self.img_jugador_label.grid(row=0, column=0, padx=50)
 
-        self.attack_button = Button(self.window, text="Atacar", font=("Arial", 14), command=self.player_attack)
-        self.attack_button.pack(pady=10)
+        self.img_rival_label = tk.Label(self.frame)
+        self.img_rival_label.grid(row=0, column=2, padx=50)
 
-        self.status_text = Text(self.window, height=15, width=80, state="disabled", font=("Courier", 12))
-        self.status_text.pack(pady=10)
+        # Info nombres y vida
+        self.info_jugador = tk.Label(self.frame, font=("Arial", 14))
+        self.info_jugador.grid(row=1, column=0)
 
-    def player_attack(self):
-        result = self.battle.play_turn()
-        self.update_display()
-        self.log(result)
+        self.info_rival = tk.Label(self.frame, font=("Arial", 14))
+        self.info_rival.grid(row=1, column=2)
 
-        if self.battle.is_over():
-            winner = self.battle.get_winner()
-            self.info_label.config(text=f"¡{winner.name} ha ganado!")
-            self.attack_button.config(state="disabled")
+        # Botones de ataque
+        self.boton_frame = tk.Frame(self.master)
+        self.boton_frame.pack(pady=20)
 
-    def update_display(self):
-        p_poke = self.player.current_pokemon()
-        e_poke = self.enemy.current_pokemon()
-        self.info_label.config(
-            text=f"{p_poke.name} ({p_poke.current_hp} HP) vs {e_poke.name} ({e_poke.current_hp} HP)"
-        )
+        self.botones_ataque = []
+        for i in range(4):
+            btn = tk.Button(self.boton_frame, text=f"Ataque {i+1}", font=("Arial", 12), width=20, command=lambda i=i: self.realizar_turno(i))
+            btn.grid(row=i//2, column=i%2, padx=10, pady=5)
+            self.botones_ataque.append(btn)
 
-    def log(self, text):
-        self.status_text.config(state="normal")
-        self.status_text.insert("end", text + "\n")
-        self.status_text.see("end")
-        self.status_text.config(state="disabled")
+    def actualizar_interface(self):
+        # Actualizar sprites
+        self.sprite_jugador = self.cargar_sprite(self.pokemon_jugador.id)
+        self.sprite_rival = self.cargar_sprite(self.pokemon_rival.id)
+
+        self.img_jugador_label.config(image=self.sprite_jugador)
+        self.img_jugador_label.image = self.sprite_jugador
+
+        self.img_rival_label.config(image=self.sprite_rival)
+        self.img_rival_label.image = self.sprite_rival
+
+        # Info
+        self.info_jugador.config(text=f"{self.pokemon_jugador.nombre} ({self.pokemon_jugador.hp_actual}/{self.pokemon_jugador.hp})")
+        self.info_rival.config(text=f"{self.pokemon_rival.nombre} ({self.pokemon_rival.hp_actual}/{self.pokemon_rival.hp})")
+
+        # Botones de ataques
+        for i, ataque in enumerate(self.pokemon_jugador.ataques):
+            self.botones_ataque[i].config(text=ataque.nombre, state="normal")
+
+    def cargar_sprite(self, poke_id):
+        ruta = os.path.join("sprites", f"{poke_id}.png")
+        if not os.path.exists(ruta):
+            return None
+        img = Image.open(ruta).resize((150, 150), Image.Resampling.LANCZOS)
+        return ImageTk.PhotoImage(img)
+
+    def realizar_turno(self, idx_ataque):
+        ataque_jugador = self.pokemon_jugador.ataques[idx_ataque]
+        resultado = self.pokemon_jugador.atacar(self.pokemon_rival, ataque_jugador)
+
+        if self.pokemon_rival.hp_actual <= 0:
+            messagebox.showinfo("Pokeminmax", f"¡{self.pokemon_rival.nombre} ha sido derrotado!")
+            return
+
+        # Turno IA
+        mejor_ataque = obtener_mejor_ataque(self.pokemon_rival, self.pokemon_jugador)
+        if mejor_ataque:
+            self.pokemon_rival.atacar(self.pokemon_jugador, mejor_ataque)
+
+        if self.pokemon_jugador.hp_actual <= 0:
+            messagebox.showinfo("Pokeminmax", f"¡{self.pokemon_jugador.nombre} ha sido derrotado!")
+            return
+
+        self.actualizar_interface()

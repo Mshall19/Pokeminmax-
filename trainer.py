@@ -21,3 +21,7 @@ class Trainer:
                 self.active_index = i
                 return True
         return False
+    
+    def has_lost(self):
+        return not self.has_available_pokemon()
+
