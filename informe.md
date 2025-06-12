@@ -1,5 +1,4 @@
 
-Pokeminmax-/ │ ├── battle.py ├── main.py ├── minimax.py ├── pokemon.py ├── trainer.py ├── requirements.txt ├── README.md │ ├── datos/ │ ├── api.py │ ├── cargar_desde_excel.py │ ├── exportar_pokemon_excel.py │ └── pokemon_primera_gen.xlsx │ ├── GUI/ │ ├── interface.py │ ├── battle_screen.py │ └── bg.jpg │ ├── sprite/ │ └── descargar_sprites.py │ └── sprites/ └── (sprites descargados)
 
 
 ---
