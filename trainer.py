@@ -1,4 +1,4 @@
-class Trainer:
+class Trainer:  # No Entrenador
     def __init__(self, name, pokemons, is_ai=False):
         self.name = name
         self.pokemons = pokemons
