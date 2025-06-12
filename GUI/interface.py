@@ -5,10 +5,8 @@ from PIL import Image, ImageTk
 from io import BytesIO
 from datos.cargar_desde_excel import cargar_pokemones_desde_excel
 from GUI.battle_screen import BattleScreen
-from pokemon import crear_pokemon_por_id
 import random
-from trainer import Trainer
-from pokemon import crear_pokemon_por_id
+
 
 TYPE_EMOJIS = {
     "grass": "🌿", "fire": "🔥", "water": "💧", "electric": "⚡",
@@ -27,7 +25,6 @@ class PokeMinMaxGUI:
         self.player_trainer = player_trainer
         self.ai_trainer = ai_trainer
 
-        # ✅ Inicializar estructuras internas
         self.selected_pokemon_ids = set()
         self.pokemon_photos = {}
         self.pokemon_data = {}
@@ -35,14 +32,12 @@ class PokeMinMaxGUI:
         self.pokemon_cards = {}
 
     def setup_interface(self):
-        # Nombre jugador
         name_frame = tk.Frame(self.root)
         name_frame.pack(pady=10)
         tk.Label(name_frame, text="Nombre del jugador:", font=("Arial", 14)).pack(side="left", padx=5)
         self.player_name_entry = tk.Entry(name_frame, font=("Arial", 14), width=30)
         self.player_name_entry.pack(side="left")
 
-        # Buscador de Pokémon
         search_frame = tk.Frame(self.root)
         search_frame.pack(pady=10)
         tk.Label(search_frame, text="Buscar Pokémon:", font=("Arial", 12)).pack(side="left", padx=5)
@@ -51,7 +46,6 @@ class PokeMinMaxGUI:
         self.search_entry = tk.Entry(search_frame, textvariable=self.search_var, font=("Arial", 12), width=30)
         self.search_entry.pack(side="left")
 
-        # Contenedor galería con scroll
         self.gallery_canvas = tk.Canvas(self.root, height=450)
         self.gallery_canvas.pack(side="left", fill="both", expand=True, padx=(10, 0), pady=10)
 
@@ -64,15 +58,12 @@ class PokeMinMaxGUI:
         self.gallery_canvas.create_window((0, 0), window=self.gallery_frame, anchor="nw")
         self.gallery_frame.bind("<Configure>", lambda e: self.gallery_canvas.configure(scrollregion=self.gallery_canvas.bbox("all")))
 
-        # Botones
         btn_frame = tk.Frame(self.root)
         btn_frame.pack(pady=10, fill="x")
         tk.Button(btn_frame, text="Borrar selección", font=("Arial", 12), command=self.clear_selection).pack()
 
         self.battle_button = tk.Button(self.root, text="¡Iniciar batalla!", font=("Arial", 16), command=self.launch_battle, state="disabled")
         self.battle_button.pack(pady=10)
-
-        # ✅ Cargar Pokémon al final de la interfaz
         self.cargar_todos_pokemones()
 
     def cargar_todos_pokemones(self):
@@ -112,12 +103,10 @@ class PokeMinMaxGUI:
                 card = tk.Frame(self.gallery_frame, relief="ridge", borderwidth=2, padx=50, pady=5)
                 card.grid(row=fila, column=columna, padx=20, pady=10, sticky="nsew")
 
-                # Imagen
                 label_img = tk.Label(card, image=pdata["photo"])
-                label_img.image = pdata["photo"]  # ✅ mantener referencia
+                label_img.image = pdata["photo"]  
                 label_img.pack(padx=10)
 
-                # Nombre y tipo
                 tk.Label(card, text=f"{pdata['name']} {pdata['type_display']}", font=("Arial", 14)).pack(pady=5)
 
                 var = tk.IntVar(value=1 if pid in self.selected_pokemon_ids else 0)
@@ -166,17 +155,14 @@ class PokeMinMaxGUI:
 
         selected_ids = list(self.selected_pokemon_ids)
 
-        # Crear nuevos Pokémon del jugador
         equipo_jugador = [crear_pokemon_por_id(pid, self.todos_los_pokemones) for pid in selected_ids]
         player_trainer = Trainer("Jugador", equipo_jugador, is_ai=False)
 
-        # Crear nuevos Pokémon aleatorios para la IA
         pokemons_disponibles = [p.id for p in self.todos_los_pokemones]
         equipo_ia_ids = random.sample(pokemons_disponibles, 3)
         equipo_ia = [crear_pokemon_por_id(pid, self.todos_los_pokemones) for pid in equipo_ia_ids]
         ai_trainer = Trainer("IA", equipo_ia, is_ai=True)
 
-        # Lanzar batalla
         battle_window = tk.Toplevel(self.root)
         BattleScreen(battle_window, player_trainer, ai_trainer)
 

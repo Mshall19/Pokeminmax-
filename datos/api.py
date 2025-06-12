@@ -9,7 +9,7 @@ def is_first_generation(pokemon_name_or_id):
         return data["generation"]["name"] == "generation-i"
     except Exception as e:
         print(f"⚠️ Advertencia: no se pudo verificar generación de {pokemon_name_or_id}. Error: {e}")
-        return True  # Suponemos que sí lo es para no cortar el flujo
+        return True
 
 def get_pokemon_data(pokemon_id):
     try:
@@ -24,7 +24,6 @@ def get_pokemon_data(pokemon_id):
         types = [t["type"]["name"] for t in data["types"]]
         sprite = data["sprites"]["front_default"]
 
-        # Simulación de movimientos básicos
         moves = [
             {"name": "Tackle", "type": "normal", "power": 40},
             {"name": f"{types[0].capitalize()} Move", "type": types[0], "power": 60},

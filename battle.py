@@ -35,10 +35,9 @@ class Battle:
     def __init__(self, player_trainer, enemy_trainer):
         self.player = player_trainer
         self.enemy = enemy_trainer
-        self.turn = 0  # 0: jugador, 1: IA
+        self.turn = 0
 
     def play_turn(self):
-        # Simulación de turno
         if self.turn == 0:
             result = self.player_attack()
         else:
@@ -49,7 +48,7 @@ class Battle:
     def player_attack(self):
         enemy = self.enemy.current_pokemon()
         player = self.player.current_pokemon()
-        damage = 10  # Simplificado
+        damage = 10
         enemy.current_hp -= damage
         return f"{player.name} atacó a {enemy.name} causando {damage} daño."
 

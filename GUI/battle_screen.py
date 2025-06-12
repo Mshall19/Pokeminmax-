@@ -18,6 +18,7 @@ class BattleScreen(tk.Toplevel):
             self.bg_image = ImageTk.PhotoImage(image)
             background_label = tk.Label(self, image=self.bg_image)
             background_label.place(x=0, y=0, relwidth=1, relheight=1)
+            background_label.lower()
 
         self.player_trainer = player_trainer
         self.ai_trainer = ai_trainer
@@ -51,18 +52,13 @@ class BattleScreen(tk.Toplevel):
         self.health_frame = tk.Frame(self.main_frame, bg='#2c3e50')
         self.health_frame.pack(fill=tk.X, pady=5)
 
-        self.info_frame = tk.Frame(self.main_frame, bg='#34495e', width=500)
-        self.info_frame.pack(pady=5)
+        self.info_frame = tk.Frame(self.main_frame, bg='#34495e', height=120)
+        self.info_frame.pack(fill=tk.BOTH, pady=5)
         self.info_frame.pack_propagate(False)
 
-        self.info_label = tk.Label(
-            self.info_frame,
-            text="La batalla ha comenzado.",
-            font=("Arial", 12),
-            bg='#34495e',
-            fg='white'
-        )
-        self.info_label.pack(pady=5)
+        self.info_text = tk.Text(self.info_frame, height=6, bg='#34495e', fg='white', font=("Arial", 12))
+        self.info_text.pack(fill=tk.BOTH, expand=True)
+        self.info_text.config(state='disabled')
 
         self.buttons_frame = tk.Frame(self.main_frame, bg='#2c3e50')
         self.buttons_frame.pack(fill=tk.X, pady=10)
@@ -85,13 +81,24 @@ class BattleScreen(tk.Toplevel):
         self.ai_name.pack()
 
     def setup_health_bars(self):
+        for widget in self.health_frame.winfo_children():
+            widget.destroy()
+
+        self.health_frame.update_idletasks()
+        frame_width = self.health_frame.winfo_width() or 1200
+
         self.player_health = tk.Label(self.health_frame, font=("Arial", 12), bg='#2c3e50', fg='white')
-        self.player_health.pack(side=tk.LEFT, padx=10)
-
-        tk.Label(self.health_frame, text="vs", font=("Arial", 14), bg='#2c3e50', fg='white').pack(side=tk.LEFT, padx=10)
-
+        vs_label = tk.Label(self.health_frame, text="vs", font=("Arial", 14), bg='#2c3e50', fg='white')
         self.ai_health = tk.Label(self.health_frame, font=("Arial", 12), bg='#2c3e50', fg='white')
-        self.ai_health.pack(side=tk.LEFT, padx=10)
+
+        self.health_frame.columnconfigure(0, weight=1)
+        self.health_frame.columnconfigure(1, weight=1)
+        self.health_frame.columnconfigure(2, weight=1)
+
+        self.player_health.grid(row=0, column=0, sticky="e", padx=(0, 10))
+        vs_label.grid(row=0, column=1)
+        self.ai_health.grid(row=0, column=2, sticky="w", padx=(10, 0))
+
 
     def setup_attack_buttons(self):
         self.attack_buttons = []
@@ -108,7 +115,7 @@ class BattleScreen(tk.Toplevel):
 
     def update_battle_display(self):
         if not self.player_sprite.winfo_exists():
-            return  # ✅ Previene crash si el widget fue destruido
+            return
 
         self.update_sprite(self.player_sprite, self.current_player_pokemon)
         self.update_sprite(self.ai_sprite, self.current_ai_pokemon)
@@ -124,7 +131,6 @@ class BattleScreen(tk.Toplevel):
         )
 
         self.update_attack_buttons()
-
 
     def update_sprite(self, label, pokemon):
         sprite_path = f"sprites/{pokemon.id}.png"
@@ -187,14 +193,19 @@ class BattleScreen(tk.Toplevel):
 
     def check_battle_end(self):
         if self.player_trainer.has_lost():
+            self.update_info_text("¡Has perdido la batalla!")
             messagebox.showinfo("Batalla terminada", "¡Has perdido la batalla!")
             self.destroy()
             return True
         elif self.ai_trainer.has_lost():
+            self.update_info_text("¡Has ganado la batalla!")
             messagebox.showinfo("Batalla terminada", "¡Has ganado la batalla!")
             self.destroy()
             return True
         return False
 
     def update_info_text(self, text):
-        self.info_label.config(text=text)
+        self.info_text.config(state='normal')
+        self.info_text.insert(tk.END, text + "\n")
+        self.info_text.see(tk.END)
+        self.info_text.config(state='disabled')
