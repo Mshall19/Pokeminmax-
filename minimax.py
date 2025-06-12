@@ -1,5 +1,5 @@
 from copy import deepcopy
-from battle import apply_move  # Importar al inicio para mejor práctica
+from battle import apply_move
 from battle import get_type_multiplier
 
 def calculate_type_advantage(attacker, defender):

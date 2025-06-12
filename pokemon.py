@@ -6,7 +6,7 @@ class Pokemon:
         self.types = types
         self.moves = moves
         self.sprite_url = sprite_url
-        self.id = pokemon_id  # Añadido ID para búsquedas
+        self.id = pokemon_id
 
     def receive_damage(self, damage):
         self.current_hp = max(0, self.current_hp - damage)
@@ -20,13 +20,12 @@ class Pokemon:
             name=data["Nombre"],
             hp=data["PS"],
             types=[t.strip() for t in data["Tipos"].split(",")],
-            moves=data["moves"],  # Esto necesita ser parseado de Movimiento 1/2
+            moves=data["moves"],
             sprite_url=data["Sprite URL"],
             pokemon_id=data["ID"]
         )
 
 def crear_pokemon_por_id(pokemon_id, lista_pokemones):
-    """Versión mejorada con manejo de errores"""
     try:
         for pokemon in lista_pokemones:
             if pokemon.id == pokemon_id:

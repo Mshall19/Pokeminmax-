@@ -1,13 +1,10 @@
-# exportar_pokemon_excel.py
-
 import pandas as pd
 from api import get_pokemon_data, is_first_generation
-
 
 def exportar_pokemon_primera_generacion(path_excel="datos/pokemon_primera_gen.xlsx"):
     datos_pokemones = []
 
-    for pokemon_id in range(1, 152):  # Pokémon del 1 al 151
+    for pokemon_id in range(1, 152):
         try:
             if not is_first_generation(pokemon_id):
                 continue
@@ -16,7 +13,6 @@ def exportar_pokemon_primera_generacion(path_excel="datos/pokemon_primera_gen.xl
             tipos = ", ".join(datos["types"])
             movs = datos["moves"]
 
-            # Asegurarse de que haya 4 movimientos (rellenar si faltan)
             while len(movs) < 4:
                 movs.append({"name": "Tackle", "type": "normal", "power": 40})
 
