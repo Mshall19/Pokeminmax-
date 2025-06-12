@@ -1,143 +1,117 @@
-from typing import Dict
 from copy import deepcopy
-from battle import Battle
+from battle import apply_move  # Importar al inicio para mejor práctica
+from battle import get_type_multiplier
 
-class MinimaxAI:
-    def __init__(self, battle: Battle, depth: int = 3):
-        self.battle = battle
-        self.depth = depth
+def calculate_type_advantage(attacker, defender):
+    """
+    Evalúa la ventaja de tipo del mejor movimiento del atacante contra el defensor.
+    Si el atacante no tiene movimientos válidos, retorna 0.
+    """
+    if not attacker.moves:
+        return 0
+
+    # Usar el movimiento que cause más daño teórico
+    best_multiplier = 0
+    for move in attacker.moves:
+        multiplier = get_type_multiplier(move['type'], defender.types)
+        if multiplier > best_multiplier:
+            best_multiplier = multiplier
+
+    return best_multiplier - 1  # Ajuste: 1 significa sin ventaja
+
+
+def evaluate(trainer_ai, trainer_player):
+    """Función de evaluación mejorada"""
+    # Ponderar Pokémon activo más que los reservas
+    active_weight = 2.0
+    reserve_weight = 0.5
     
-    def evaluate_state(self, battle_state: dict) -> float:
-        """Función heurística para evaluar un estado del combate."""
-        player_pokemon = battle_state['player']['active']
-        opponent_pokemon = battle_state['opponent']['active']
-        
-        # Ponderaciones para los factores de evaluación
-        hp_weight = 0.6
-        type_advantage_weight = 0.3
-        remaining_pokemon_weight = 0.1
-        
-        # Calcula ventaja en PS (0-1)
-        hp_score = (opponent_pokemon['current_hp'] / opponent_pokemon['max_hp']) - \
-                   (player_pokemon['current_hp'] / player_pokemon['max_hp'])
-        
-        # Calcula ventaja de tipo
-        type_score = 0
-        for move in player_pokemon['moves']:
-            effectiveness = 1.0
-            if move['type'] in battle_state['type_chart'] and \
-               opponent_pokemon['type'] in battle_state['type_chart'][move['type']]:
-                effectiveness = battle_state['type_chart'][move['type']][opponent_pokemon['type']]
-            type_score += (effectiveness - 1)
-        
-        type_score = type_score / len(player_pokemon['moves']) if player_pokemon['moves'] else 0
-        
-        # Calcula ventaja en número de Pokémon restantes
-        remaining_score = (battle_state['opponent']['remaining'] - battle_state['player']['remaining']) / 6
-        
-        # Combinación ponderada
-        total_score = (hp_weight * hp_score + 
-                      type_advantage_weight * type_score + 
-                      remaining_pokemon_weight * remaining_score)
-        
-        return total_score
+    ai_active = trainer_ai.active_pokemon
+    ai_score = active_weight * ai_active.current_hp
+    ai_score += reserve_weight * sum(
+        p.current_hp for p in trainer_ai.pokemons 
+        if p != ai_active and not p.is_fainted()
+    )
     
-    def minimax(self, state: dict, depth: int, alpha: float, beta: float, maximizing_player: bool) -> float:
-        if depth == 0 or state['game_over']:
-            return self.evaluate_state(state)
-        
-        if maximizing_player:  # Es el turno de la IA
-            max_eval = float('-inf')
-            for move_idx in range(len(state['opponent']['active']['moves'])):
-                new_state = self.simulate_move(state, 'opponent', move_idx)
-                eval = self.minimax(new_state, depth-1, alpha, beta, False)
-                max_eval = max(max_eval, eval)
-                alpha = max(alpha, eval)
-                if beta <= alpha:
-                    break  # Poda alfa-beta
-            return max_eval
-        else:  # Es el turno del jugador
-            min_eval = float('inf')
-            for move_idx in range(len(state['player']['active']['moves'])):
-                new_state = self.simulate_move(state, 'player', move_idx)
-                eval = self.minimax(new_state, depth-1, alpha, beta, True)
-                min_eval = min(min_eval, eval)
-                beta = min(beta, eval)
-                if beta <= alpha:
-                    break  # Poda alfa-beta
-            return min_eval
+    player_active = trainer_player.active_pokemon
+    player_score = active_weight * player_active.current_hp
+    player_score += reserve_weight * sum(
+        p.current_hp for p in trainer_player.pokemons 
+        if p != player_active and not p.is_fainted()
+    )
     
-    def get_best_move(self) -> int:
-        """Devuelve el índice del mejor movimiento según minimax."""
-        battle_state = self.get_current_state()
-        best_move = 0
-        max_eval = float('-inf')
+    # Considerar ventaja de tipo
+    type_advantage = calculate_type_advantage(ai_active, player_active)
+    
+    return (ai_score - player_score) * (1 + type_advantage)
+
+def minimax(ai, player, depth, alpha, beta, maximizing):
+    """Algoritmo minimax con optimizaciones"""
+    # Condición de terminación mejorada
+    if depth == 0 or ai.has_lost() or player.has_lost():
+        return evaluate(ai, player), None
+    
+    current_trainer = ai if maximizing else player
+    best_value = float('-inf') if maximizing else float('inf')
+    best_move = None
+    
+    # Ordenar movimientos por poder descendente (mejora la poda)
+    moves = sorted(
+        current_trainer.active_pokemon.moves,
+        key=lambda m: m['power'],
+        reverse=maximizing
+    )
+    
+    for move in moves:
+        # Simulación del movimiento
+        ai_copy = deepcopy(ai)
+        player_copy = deepcopy(player)
         
-        for move_idx in range(len(battle_state['opponent']['active']['moves'])):
-            new_state = self.simulate_move(battle_state, 'opponent', move_idx)
-            eval = self.minimax(new_state, self.depth-1, float('-inf'), float('inf'), False)
+        attacker = ai_copy if maximizing else player_copy
+        defender = player_copy if maximizing else ai_copy
+        
+        apply_move(attacker.active_pokemon, defender.active_pokemon, move)
+        
+        # Manejo de Pokémon debilitado
+        if defender.active_pokemon.is_fainted():
+            if not defender.switch_to_next_available():
+                # Fin de batalla si no hay reemplazo
+                return evaluate(ai_copy, player_copy), move
+        
+        # Llamada recursiva
+        eval_score, _ = minimax(
+            ai_copy, 
+            player_copy, 
+            depth-1, 
+            alpha, 
+            beta, 
+            not maximizing
+        )
+        
+        # Actualizar mejor movimiento
+        if (maximizing and eval_score > best_value) or (not maximizing and eval_score < best_value):
+            best_value = eval_score
+            best_move = move
             
-            if eval > max_eval:
-                max_eval = eval
-                best_move = move_idx
-        
-        return best_move
+            # Poda alfa-beta
+            if maximizing:
+                alpha = max(alpha, best_value)
+            else:
+                beta = min(beta, best_value)
+            
+            if beta <= alpha:
+                break
     
-    def get_current_state(self) -> dict:
-        """Convierte el estado actual del combate a un diccionario para minimax."""
-        return {
-            'player': {
-                'active': {
-                    'name': self.battle.player.active_pokemon.name,
-                    'type': self.battle.player.active_pokemon.pokemon_type,
-                    'current_hp': self.battle.player.active_pokemon.current_hp,
-                    'max_hp': self.battle.player.active_pokemon.max_hp,
-                    'moves': [{'name': m.name, 'type': m.move_type, 'power': m.power} 
-                             for m in self.battle.player.active_pokemon.moves],
-                },
-                'remaining': sum(1 for p in self.battle.player.pokemon_team if not p.is_fainted()),
-            },
-            'opponent': {
-                'active': {
-                    'name': self.battle.opponent.active_pokemon.name,
-                    'type': self.battle.opponent.active_pokemon.pokemon_type,
-                    'current_hp': self.battle.opponent.active_pokemon.current_hp,
-                    'max_hp': self.battle.opponent.active_pokemon.max_hp,
-                    'moves': [{'name': m.name, 'type': m.move_type, 'power': m.power} 
-                             for m in self.battle.opponent.active_pokemon.moves],
-                },
-                'remaining': sum(1 for p in self.battle.opponent.pokemon_team if not p.is_fainted()),
-            },
-            'type_chart': self.battle.type_chart,
-            'game_over': not (self.battle.player.has_available_pokemon() and self.battle.opponent.has_available_pokemon()),
-        }
-    
-    def simulate_move(self, state: dict, attacker: str, move_idx: int) -> dict:
-        """Simula un movimiento y devuelve un nuevo estado."""
-        new_state = deepcopy(state)
-        attacker_data = new_state[attacker]['active']
-        defender = 'opponent' if attacker == 'player' else 'player'
-        defender_data = new_state[defender]['active']
-        
-        if move_idx >= len(attacker_data['moves']):
-            return new_state  # Movimiento inválido, no cambia el estado
-        
-        move = attacker_data['moves'][move_idx]
-        
-        # Calcula efectividad
-        effectiveness = 1.0
-        if move['type'] in new_state['type_chart'] and defender_data['type'] in new_state['type_chart'][move['type']]:
-            effectiveness = new_state['type_chart'][move['type']][defender_data['type']]
-        
-        # Calcula daño (simplificado)
-        damage = int((move['power'] * effectiveness))
-        
-        # Aplica daño
-        defender_data['current_hp'] = max(0, defender_data['current_hp'] - damage)
-        
-        # Verifica si el defensor fue debilitado
-        if defender_data['current_hp'] <= 0:
-            new_state[defender]['remaining'] -= 1
-            new_state['game_over'] = new_state[defender]['remaining'] <= 0
-        
-        return new_state
+    return best_value, best_move
+
+def obtener_mejor_ataque(trainer_ai, trainer_player, depth=3):
+    """Función principal con profundidad configurable"""
+    _, best_move = minimax(
+        trainer_ai,
+        trainer_player,
+        depth=depth,
+        alpha=float('-inf'),
+        beta=float('inf'),
+        maximizing=True
+    )
+    return best_move

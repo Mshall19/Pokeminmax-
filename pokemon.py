@@ -1,24 +1,36 @@
-from dataclasses import dataclass
-from typing import List
-
-@dataclass
-class Move:
-    name: str
-    move_type: str  # e.g., "fire", "water"
-    power: int
-    accuracy: int = 100  # Siempre acertará en este proyecto
-
-@dataclass
 class Pokemon:
-    name: str
-    pokemon_type: str  # o List[str] para tipos duales
-    max_hp: int
-    current_hp: int
-    moves: List[Move]
-    speed: int  # Para determinar orden de ataque
-    
-    def is_fainted(self) -> bool:
-        return self.current_hp <= 0
-    
-    def available_moves(self) -> List[Move]:
-        return [move for move in self.moves]
+    def __init__(self, name, hp, types, moves, sprite_url, pokemon_id=None):
+        self.name = name
+        self.max_hp = hp
+        self.current_hp = hp
+        self.types = types
+        self.moves = moves
+        self.sprite_url = sprite_url
+        self.id = pokemon_id  # Añadido ID para búsquedas
+
+    def receive_damage(self, damage):
+        self.current_hp = max(0, self.current_hp - damage)
+
+    def is_fainted(self):
+        return self.current_hp == 0
+
+    @staticmethod
+    def from_excel_data(data):
+        return Pokemon(
+            name=data["Nombre"],
+            hp=data["PS"],
+            types=[t.strip() for t in data["Tipos"].split(",")],
+            moves=data["moves"],  # Esto necesita ser parseado de Movimiento 1/2
+            sprite_url=data["Sprite URL"],
+            pokemon_id=data["ID"]
+        )
+
+def crear_pokemon_por_id(pokemon_id, lista_pokemones):
+    """Versión mejorada con manejo de errores"""
+    try:
+        for pokemon in lista_pokemones:
+            if pokemon.id == pokemon_id:
+                return pokemon
+        raise ValueError(f"No se encontró Pokémon con ID {pokemon_id}")
+    except AttributeError:
+        raise AttributeError("La lista de Pokémon no tiene el formato correcto")
