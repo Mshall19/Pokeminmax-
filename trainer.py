@@ -25,3 +25,4 @@ class Trainer:  # No Entrenador
     def has_lost(self):
         return not self.has_available_pokemon()
 
+

@@ -6,6 +6,9 @@ from io import BytesIO
 from datos.cargar_desde_excel import cargar_pokemones_desde_excel
 from GUI.battle_screen import BattleScreen
 from pokemon import crear_pokemon_por_id
+import random
+from trainer import Trainer
+from pokemon import crear_pokemon_por_id
 
 TYPE_EMOJIS = {
     "grass": "🌿", "fire": "🔥", "water": "💧", "electric": "⚡",
@@ -100,7 +103,7 @@ class PokeMinMaxGUI:
 
         filtro = self.search_var.get().strip().lower()
 
-        columnas = 3
+        columnas = 4
         fila = 0
         columna = 0
 
@@ -163,13 +166,20 @@ class PokeMinMaxGUI:
 
         selected_ids = list(self.selected_pokemon_ids)
 
-        # Crear equipo del jugador con los IDs seleccionados
+        # Crear nuevos Pokémon del jugador
         equipo_jugador = [crear_pokemon_por_id(pid, self.todos_los_pokemones) for pid in selected_ids]
         player_trainer = Trainer("Jugador", equipo_jugador, is_ai=False)
 
-        # Usar el AI trainer original
+        # Crear nuevos Pokémon aleatorios para la IA
+        pokemons_disponibles = [p.id for p in self.todos_los_pokemones]
+        equipo_ia_ids = random.sample(pokemons_disponibles, 3)
+        equipo_ia = [crear_pokemon_por_id(pid, self.todos_los_pokemones) for pid in equipo_ia_ids]
+        ai_trainer = Trainer("IA", equipo_ia, is_ai=True)
+
+        # Lanzar batalla
         battle_window = tk.Toplevel(self.root)
-        BattleScreen(battle_window, player_trainer, self.ai_trainer)
+        BattleScreen(battle_window, player_trainer, ai_trainer)
+
 
 
 def launch_gui(player_trainer, ai_trainer):
